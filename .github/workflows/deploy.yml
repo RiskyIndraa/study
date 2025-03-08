@@ -50,7 +50,7 @@ jobs:
 
       - name: Upload to S3
         run: |
-          aws s3 cp application.zip s3://${{ secrets.S3_BUCKET_NAME }}/deployments/application-${{ github.sha }}.zip
+          aws s3 cp application.zip s3://lks-dockerimage-indra-25/deployments/application-${{ github.sha }}.zip
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -75,7 +75,7 @@ jobs:
           echo "Deploying to Elastic Beanstalk:"
           echo "Application Name: ${{ secrets.EB_APP_NAME }}"
           echo "Environment Name: ${{ secrets.EB_ENV_NAME }}"
-          echo "S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}"
+          echo "S3_BUCKET_NAME: lks-dockerimage-indra-25"
           echo "S3_KEY: deployments/application-${{ github.sha }}.zip"
 
       - name: Deploy to Elastic Beanstalk
@@ -83,7 +83,7 @@ jobs:
           aws elasticbeanstalk create-application-version \
             --application-name ${{ secrets.EB_APP_NAME }} \
             --version-label ${{ github.sha }} \
-            --source-bundle S3Bucket=${{ secrets.S3_BUCKET_NAME }},S3Key="deployments/application-${{ github.sha }}.zip" \
+            --source-bundle S3Bucket=lks-dockerimage-indra-25,S3Key="deployments/application-${{ github.sha }}.zip" \
             --region ${{ secrets.AWS_REGION }}
 
           aws elasticbeanstalk update-environment \
