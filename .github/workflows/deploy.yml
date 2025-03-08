@@ -34,6 +34,15 @@ jobs:
       - name: Verify AWS CLI installation
         run: aws --version
 
+      - name: Debug AWS Credentials
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          aws configure list
+          aws sts get-caller-identity
+
       - name: Debug Secrets
         run: |
           echo "S3_BUCKET_NAME: '${{ secrets.S3_BUCKET_NAME }}'"
@@ -51,12 +60,12 @@ jobs:
         run: zip -r application.zip . -x '*.git*'
 
       - name: Upload to S3
-        run: |
-          aws s3 cp application.zip s3://${{ secrets.S3_BUCKET_NAME }}/deployments/application-${{ github.sha }}.zip
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          aws s3 cp application.zip s3://${{ secrets.S3_BUCKET_NAME }}/deployments/application-${{ github.sha }}.zip
 
   deploy:
     needs: build-and-push
@@ -67,6 +76,10 @@ jobs:
         run: aws --version
 
       - name: Debug Deployment Variables
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
         run: |
           echo "Deploying to Elastic Beanstalk:"
           echo "Application Name: '${{ secrets.EB_APP_NAME }}'"
@@ -79,6 +92,10 @@ jobs:
           fi
 
       - name: Deploy to Elastic Beanstalk
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
         run: |
           aws elasticbeanstalk create-application-version \
             --application-name "${{ secrets.EB_APP_NAME }}" \
@@ -91,11 +108,11 @@ jobs:
             --version-label "${{ github.sha }}"
 
       - name: Set Environment Variables in Elastic Beanstalk
-        run: |
-          aws elasticbeanstalk update-environment \
-            --environment-name "${{ secrets.EB_ENV_NAME }}" \
-            --option-settings Namespace=aws:elasticbeanstalk:application:environment,OptionName=API_GATEWAY_URL,Value="${{ secrets.API_GATEWAY_URL }}"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          aws elasticbeanstalk update-environment \
+            --environment-name "${{ secrets.EB_ENV_NAME }}" \
+            --option-settings Namespace=aws:elasticbeanstalk:application:environment,OptionName=API_GATEWAY_URL,Value="${{ secrets.API_GATEWAY_URL }}"
