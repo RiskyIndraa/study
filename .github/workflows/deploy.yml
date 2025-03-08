@@ -1,95 +1,25 @@
-name: Belajar CI/CD Python
+import os
+import requests
+from flask import Flask, jsonify
 
-on:
-  push:
-    branches:
-      - main
+app = Flask(__name__)
 
-jobs:
-  install:
-    runs-on: ubuntu-latest
+# Ambil API URL dari environment variable
+API_URL = os.getenv("API_GATEWAY_URL")
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+# Debugging untuk memastikan API_URL tidak kosong
+if not API_URL:
+    raise ValueError("❌ ERROR: API_GATEWAY_URL is not set. Please check environment variables.")
 
-      - name: Set up Python 3.13
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.13
+@app.route("/")
+def index():
+    try:
+        response = requests.get(API_URL)
+        response.raise_for_status()  # Akan memunculkan error jika response bukan 200
+        users = response.json()
+        return jsonify(users)
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"Failed to fetch data from API: {str(e)}"}), 500
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-  build-and-push:
-    needs: install
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Verify AWS CLI installation
-        run: aws --version
-
-      - name: Debug Secrets
-        run: |
-          echo "S3_BUCKET_NAME: '${{ secrets.S3_BUCKET_NAME }}'"
-          if [ -z "${{ secrets.S3_BUCKET_NAME }}" ]; then
-            echo "❌ ERROR: S3_BUCKET_NAME is EMPTY or NOT SET!"
-            exit 1
-          fi
-
-      - name: Zip application for deployment
-        run: zip -r application.zip . -x '*.git*'
-
-      - name: Upload to S3
-        run: |
-          aws s3 cp application.zip s3://${{ secrets.S3_BUCKET_NAME }}/deployments/application-${{ github.sha }}.zip
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Verify AWS CLI installation
-        run: aws --version
-
-      - name: Debug Deployment Variables
-        run: |
-          echo "Deploying to Elastic Beanstalk:"
-          echo "Application Name: '${{ secrets.EB_APP_NAME }}'"
-          echo "Environment Name: '${{ secrets.EB_ENV_NAME }}'"
-          echo "S3_BUCKET_NAME: '${{ secrets.S3_BUCKET_NAME }}'"
-          echo "S3_KEY: deployments/application-${{ github.sha }}.zip"
-          
-          if [ -z "${{ secrets.EB_APP_NAME }}" ]; then
-            echo "❌ ERROR: EB_APP_NAME is EMPTY!"
-            exit 1
-          fi
-          if [ -z "${{ secrets.EB_ENV_NAME }}" ]; then
-            echo "❌ ERROR: EB_ENV_NAME is EMPTY!"
-            exit 1
-          fi
-
-      - name: Deploy to Elastic Beanstalk
-        run: |
-          aws elasticbeanstalk create-application-version \
-            --application-name "${{ secrets.EB_APP_NAME }}" \
-            --version-label "${{ github.sha }}" \
-            --source-bundle S3Bucket="${{ secrets.S3_BUCKET_NAME }}",S3Key="deployments/application-${{ github.sha }}.zip" \
-            --region "${{ secrets.AWS_REGION }}"
-
-          aws elasticbeanstalk update-environment \
-            --environment-name "${{ secrets.EB_ENV_NAME }}" \
-            --version-label "${{ github.sha }}"
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
