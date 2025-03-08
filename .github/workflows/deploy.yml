@@ -44,6 +44,10 @@ jobs:
 
       - name: Upload to S3
         run: |
+          if [ -z "${{ secrets.S3_BUCKET_NAME }}" ]; then
+            echo "❌ ERROR: S3_BUCKET_NAME is empty!"
+            exit 1
+          fi
           aws s3 cp application.zip s3://${{ secrets.S3_BUCKET_NAME }}/deployments/application-${{ github.sha }}.zip
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
