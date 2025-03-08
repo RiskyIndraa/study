@@ -36,23 +36,27 @@ jobs:
 
       - name: Debug Secrets
         run: |
-          echo "S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}"
-          echo "S3_KEY: deployments/application-${{ github.sha }}.zip"
+          echo "S3_BUCKET_NAME: '${{ secrets.S3_BUCKET_NAME }}'"
+          if [ -z "${{ secrets.S3_BUCKET_NAME }}" ]; then
+            echo "❌ ERROR: S3_BUCKET_NAME is EMPTY or NOT SET!"
+            exit 1
+          fi
 
       - name: Zip application for deployment
         run: zip -r application.zip . -x '*.git*'
 
       - name: Upload to S3
-        run: |
-          if [ -z "${{ secrets.S3_BUCKET_NAME }}" ]; then
-            echo "❌ ERROR: S3_BUCKET_NAME is empty!"
-            exit 1
-          fi
-          aws s3 cp application.zip s3://${{ secrets.S3_BUCKET_NAME }}/deployments/application-${{ github.sha }}.zip
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
+          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+        run: |
+          if [ -z "$S3_BUCKET_NAME" ]; then
+            echo "❌ ERROR: S3_BUCKET_NAME is empty!"
+            exit 1
+          fi
+          aws s3 cp application.zip s3://$S3_BUCKET_NAME/deployments/application-${{ github.sha }}.zip
 
   deploy:
     needs: build-and-push
@@ -67,21 +71,12 @@ jobs:
           echo "Deploying to Elastic Beanstalk:"
           echo "Application Name: ${{ secrets.EB_APP_NAME }}"
           echo "Environment Name: ${{ secrets.EB_ENV_NAME }}"
-          echo "S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}"
+          echo "S3_BUCKET_NAME: '${{ secrets.S3_BUCKET_NAME }}'"
           echo "S3_KEY: deployments/application-${{ github.sha }}.zip"
+          if [ -z "${{ secrets.S3_BUCKET_NAME }}" ]; then
+            echo "❌ ERROR: S3_BUCKET_NAME is EMPTY!"
+            exit 1
+          fi
 
       - name: Deploy to Elastic Beanstalk
-        run: |
-          aws elasticbeanstalk create-application-version \
-            --application-name ${{ secrets.EB_APP_NAME }} \
-            --version-label ${{ github.sha }} \
-            --source-bundle S3Bucket=${{ secrets.S3_BUCKET_NAME }},S3Key="deployments/application-${{ github.sha }}.zip" \
-            --region ${{ secrets.AWS_REGION }}
-
-          aws elasticbeanstalk update-environment \
-            --environment-name ${{ secrets.EB_ENV_NAME }} \
-            --version-label ${{ github.sha }}
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
+   
