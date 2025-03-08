@@ -1,0 +1,56 @@
+<!-- Create Modal -->
+<div class="modal" id="create-modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg">Create New User</h3>
+        <form method="POST" action="{{ url_for('create_user') }}" enctype="multipart/form-data">
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Name</span>
+                </label>
+                <input type="text" name="name" class="input input-bordered" required>
+            </div>
+
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Email</span>
+                </label>
+                <input type="email" name="email" class="input input-bordered" required>
+            </div>
+
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Institution</span>
+                </label>
+                <input type="text" name="institution" class="input input-bordered" required>
+            </div>
+
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Position</span>
+                </label>
+                <input type="text" name="position" class="input input-bordered" required>
+            </div>
+
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Phone</span>
+                </label>
+                <input type="tel" name="phone" class="input input-bordered" required>
+            </div>
+
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Profile Image</span>
+                </label>
+                <input type="file" name="image" class="file-input file-input-bordered">
+            </div>
+
+            <div class="modal-action">
+                <button type="submit" class="btn btn-primary">Create</button>
+                <a href="#" class="btn">Close</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Modal (serupa dengan create modal) -->

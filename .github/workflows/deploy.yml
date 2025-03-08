@@ -1,0 +1,75 @@
+name: Deploy Flask App to AWS Elastic Beanstalk
+
+on:
+  push:
+    branches:
+      - main  # Akan berjalan setiap push ke branch "main"
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.11
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+  build-and-upload:
+    needs: install
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install AWS CLI
+        run: |
+          sudo apt update
+          sudo apt install -y awscli
+
+      - name: Zip application for deployment
+        run: |
+          zip -r application.zip . -x '*.git*' '__pycache__/*' '*.venv/*' 'node_modules/*'
+
+      - name: Upload to S3
+        run: |
+          aws s3 cp application.zip s3://lks-dockerimage-indra-25/deployments/application-${{ github.sha }}.zip
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: us-east-1
+
+  deploy:
+    needs: build-and-upload
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install AWS CLI
+        run: |
+          sudo apt update
+          sudo apt install -y awscli
+
+      - name: Deploy to Elastic Beanstalk
+        run: |
+          aws elasticbeanstalk create-application-version \
+            --application-name lks-eb-apps-indra \
+            --version-label ${{ github.sha }} \
+            --source-bundle S3Bucket=lks-dockerimage-indra-25,S3Key="deployments/application-${{ github.sha }}.zip" \
+            --region us-east-1
+
+          aws elasticbeanstalk update-environment \
+            --environment-name Lks-eb-apps-indra-env \
+            --version-label ${{ github.sha }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: us-east-1
