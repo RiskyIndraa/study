@@ -31,44 +31,65 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Install AWS CLI manually
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
+
+      - name: Verify AWS CLI installation
+        run: aws --version
+
+      - name: Debug Secrets
+        run: |
+          echo "S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}"
+          echo "S3_KEY: deployments/application-${{ github.sha }}.zip"
+
       - name: Zip application for deployment
         run: zip -r application.zip . -x '*.git*'
 
       - name: Upload to S3
         run: |
-          aws s3 cp application.zip s3://$S3_BUCKET_NAME/$S3_KEY
+          aws s3 cp application.zip s3://${{ secrets.S3_BUCKET_NAME }}/deployments/application-${{ github.sha }}.zip
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
-          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
-          S3_KEY: "deployments/application-${{ github.sha }}.zip"
 
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
 
     steps:
+      - name: Install AWS CLI manually
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
+
+      - name: Verify AWS CLI installation
+        run: aws --version
+
+      - name: Debug Deployment Variables
+        run: |
+          echo "Deploying to Elastic Beanstalk:"
+          echo "Application Name: ${{ secrets.EB_APP_NAME }}"
+          echo "Environment Name: ${{ secrets.EB_ENV_NAME }}"
+          echo "S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}"
+          echo "S3_KEY: deployments/application-${{ github.sha }}.zip"
+
       - name: Deploy to Elastic Beanstalk
         run: |
           aws elasticbeanstalk create-application-version \
             --application-name ${{ secrets.EB_APP_NAME }} \
-            --version-label $GITHUB_SHA \
-            --source-bundle S3Bucket=$S3_BUCKET_NAME,S3Key=$S3_KEY \
-            --region $AWS_REGION
+            --version-label ${{ github.sha }} \
+            --source-bundle S3Bucket=${{ secrets.S3_BUCKET_NAME }},S3Key="deployments/application-${{ github.sha }}.zip" \
+            --region ${{ secrets.AWS_REGION }}
 
           aws elasticbeanstalk update-environment \
             --environment-name ${{ secrets.EB_ENV_NAME }} \
-            --version-label $GITHUB_SHA
+            --version-label ${{ github.sha }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
-          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-          
-          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
-          S3_KEY: "deployments/application-${{ github.sha }}.zip"
-
-          EB_ENV_NAME: ${{ secrets.EB_ENV_NAME }}
-          EB_APP_NAME: ${{ secrets.EB_APP_NAME }}
