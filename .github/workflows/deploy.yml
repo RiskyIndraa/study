@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+      - main  # Akan berjalan setiap ada push ke branch "main"
+
 
 jobs:
   install:
@@ -75,11 +77,43 @@ jobs:
             --no-delete-source-bundle
 
       - name: Deploy to Elastic Beanstalk
+
+      - name: Set timestamp for versioning
+        run: echo "TIMESTAMP=$(date +%s)" >> $GITHUB_ENV
+
+      - name: Delete existing application version (if exists)
+        run: |
+          aws elasticbeanstalk delete-application-version \
+            --application-name "${{ secrets.EB_APP_NAME }}" \
+            --version-label "${{ github.sha }}" \
+            --region "${{ secrets.AWS_REGION }}" \
+            --no-delete-source-bundle || true
+
+      - name: Wait for Elastic Beanstalk to be Ready
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
         run: |
+          echo "⏳ Waiting for Elastic Beanstalk to be Ready..."
+          while true; do
+            STATUS=$(aws elasticbeanstalk describe-environments --environment-names "${{ secrets.EB_ENV_NAME }}" --query "Environments[0].Status" --output text)
+            echo "Current Status: $STATUS"
+            if [ "$STATUS" == "Ready" ]; then
+              echo "✅ Environment is Ready!"
+              break
+            fi
+            echo "⏳ Environment is not Ready, waiting 30 seconds..."
+            sleep 30
+          done
+
+      - name: Deploy to Elastic Beanstalk
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+
           VERSION_LABEL="${{ github.sha }}-${TIMESTAMP}"
 
           aws elasticbeanstalk create-application-version \
