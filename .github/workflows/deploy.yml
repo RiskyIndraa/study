@@ -1,16 +1,19 @@
-name: Deploy Flask App to AWS Elastic Beanstalk
+name: Belajar CI/CD Python
 
 on:
   push:
     branches:
       - main  # Akan berjalan setiap ada push ke branch "main"
+      - main
+      - main  # Akan berjalan setiap ada push ke branch "main"
+
 
 jobs:
   install:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Set up Python 3.13
@@ -23,12 +26,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-  build-and-upload:
+  build-and-push:
     needs: install
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Verify AWS CLI installation
@@ -55,12 +58,30 @@ jobs:
           aws s3 cp application.zip s3://${{ secrets.S3_BUCKET_NAME }}/deployments/application-${{ github.sha }}.zip
 
   deploy:
-    needs: build-and-upload
+    needs: build-and-push
     runs-on: ubuntu-latest
 
     steps:
       - name: Verify AWS CLI installation
         run: aws --version
+
+      - name: Set timestamp for versioning
+        run: echo "TIMESTAMP=$(date +%s)" >> $GITHUB_ENV
+
+
+      - name: Set timestamp for versioning
+        run: echo "TIMESTAMP=$(date +%s)" >> $GITHUB_ENV
+
+      - name: Delete existing application version (if exists)
+        continue-on-error: true
+        run: |
+          aws elasticbeanstalk delete-application-version \
+            --application-name "${{ secrets.EB_APP_NAME }}" \
+            --version-label "${{ github.sha }}" \
+            --region "${{ secrets.AWS_REGION }}" \
+            --no-delete-source-bundle
+
+      - name: Deploy to Elastic Beanstalk
 
       - name: Set timestamp for versioning
         run: echo "TIMESTAMP=$(date +%s)" >> $GITHUB_ENV
@@ -97,6 +118,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
         run: |
+
           VERSION_LABEL="${{ github.sha }}-${TIMESTAMP}"
 
           aws elasticbeanstalk create-application-version \
